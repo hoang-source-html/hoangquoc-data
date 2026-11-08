@@ -1,0 +1,22 @@
+const {chromium}=require('C:/Users/quoc.vh/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert=require('assert/strict'),path=require('path');
+(async()=>{
+const browser=await chromium.launch({headless:true,channel:'msedge'});const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('file:///'+path.join(__dirname,'index.html').replace(/\\/g,'/'));await page.locator('#auth-button').click();
+await page.locator('#auth-password').fill(process.env.KCR_EDITOR_PASSWORD);await page.locator('#sign-in').click();
+await page.waitForFunction(()=>document.querySelector('#live-state').classList.contains('connected'),{timeout:60000});
+assert.equal(await page.evaluate(()=>DATA.length),18729);assert.equal(await page.locator('#auth-password').inputValue(),'');
+assert.equal(await page.evaluate(()=>localStorage.getItem('kcr-live')),'1');
+await page.locator('#update-data').click();await page.locator('#import-file').setInputFiles(path.join(__dirname,'existing-row-check.csv'));
+await page.waitForFunction(()=>document.querySelector('#commit-import').disabled===false);
+await page.locator('#commit-import').click();
+await page.waitForFunction(()=>document.querySelector('#import-preview').textContent.includes('bỏ qua 1 dòng'),{timeout:60000});
+await page.waitForFunction(()=>document.querySelector('#live-state').classList.contains('connected'),{timeout:60000});
+assert.equal(await page.evaluate(()=>DATA.length),18729);assert.equal(await page.evaluate(()=>pendingImport),null);
+await page.keyboard.press('Escape');await page.locator('#collapse').click();
+assert.ok(await page.locator('#table-body .clarity').count()>0);assert.equal(await page.locator('#table-body .leaf').count(),0);
+await page.screenshot({path:path.join(__dirname,'dashboard-live.png'),fullPage:true});
+await page.reload();await page.waitForFunction(()=>document.querySelector('#live-state').classList.contains('connected'),{timeout:60000});assert.equal(await page.evaluate(()=>DATA.length),18729);
+await page.locator('#auth-button').click();await page.locator('#sign-out').click();assert.equal(await page.evaluate(()=>DATA.length),0);await page.reload();assert.equal(await page.evaluate(()=>DATA.length),0);
+assert.deepEqual(errors,[]);console.log('PASS LIVE: publishable-key login, 18,729-row snapshot, upload preview, duplicate Data skipped atomically, refresh from Supabase, live reload persists, logout does not expose embedded fallback.');await browser.close();
+})().catch(e=>{console.error(e.message);process.exit(1)});
